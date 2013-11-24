@@ -51,5 +51,8 @@ typedef struct{
 	//! Calculate DoH responses for supplied layer
     void buildResponseLayer(FastHessian* fh, ResponseLayer *r);
 
+	//! 3x3x3 Extrema test
+    int isExtremum(int r, int c, ResponseLayer *t, ResponseLayer *m, ResponseLayer *b, FastHessian* fh); 
+
 void interpolateStep();
 

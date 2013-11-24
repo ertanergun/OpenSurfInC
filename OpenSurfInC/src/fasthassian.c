@@ -35,6 +35,34 @@ int getIpoints(FastHessian *fh)
 
 	// Build the response map
 	buildResponseMap(fh);
+
+	// Get the response layers
+
+	// Get the response layers
+	
+	 for (o = 0; o < fh->octaves; ++o)
+	 {
+		 for (i = 0; i <= 1; ++i)
+		{
+			b = &fh->responseMap[filter_map[o][i]];
+			m = &fh->responseMap[filter_map[o][i+1]];
+			t = &fh->responseMap[filter_map[o][i+2]];
+
+		// loop over middle response layer at density of the most 
+		// sparse layer (always top), to find maxima across scale and space
+		for (r = 0; r < t->height; ++r)
+		{
+				for (c = 0; c < t->width; ++c)
+				{
+					if (isExtremum(r, c, t, m, b,fh))
+					{
+						//interpolateExtremum(r, c, t, m, b,fh);
+					}
+				}
+			}
+	   }
+	}
+	return count;
 }
 
 void buildResponseMap(FastHessian *fh)
@@ -139,6 +167,39 @@ void buildResponseLayer(FastHessian *fh, ResponseLayer *rl)
 				}
 		}
 }
+
+int isExtremum(int r, int c, ResponseLayer *t, ResponseLayer *m, ResponseLayer *b, FastHessian* fh)
+{
+	float candidate;
+	int rr, cc;
+
+	// bounds check
+	int layerBorder = (t->filter + 1) / (2 * t->step);
+
+	if (r <= layerBorder || r >= t->height - layerBorder || c <= layerBorder || c >= t->width - layerBorder)
+    return 0;
+
+	// check the candidate point in the middle layer is above thresh 
+	candidate = getResponse(r, c, t, m);
+	if (candidate < fh->thresh) 
+    return 0; 
+
+	for (rr = -1; rr <=1; ++rr)
+		{
+		for (cc = -1; cc <=1; ++cc)
+			{
+				if(
+					get_Response(r+rr, c+cc, t) >= candidate ||
+					((rr != 0 || cc != 0) && getResponse(r+rr, c+cc, t, m) >= candidate) ||
+					getResponse(r+rr, c+cc, t, b) >= candidate
+					)
+					return 0;
+		}
+	}
+
+	return 1;
+}
+
 
 //! Performs one step of extremum interpolation. 
 //void interpolateStep(int r, int c, ResponseLayer *t, ResponseLayer *m, ResponseLayer *b, double* xi, double* xr, double* xc )

@@ -28,5 +28,6 @@ int mainImage()
 
 int main()
 {
+	mainImage();
 	return 0;
 }

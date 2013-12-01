@@ -28,6 +28,16 @@ typedef uint64_t uint64;
     #endif
 #endif
 
+#ifndef CV_INLINE
+#if defined __cplusplus
+    #define CV_INLINE inline
+#elif (defined WIN32 || defined _WIN32 || defined WIN64 || defined _WIN64 || defined WINCE) && !defined __GNUC__
+    #define CV_INLINE __inline
+#else
+    #define CV_INLINE static
+#endif
+#endif /* CV_INLINE */
+
 #if defined WIN32 || defined _WIN32 || defined WIN64 || defined _WIN64
     #define CV_CDECL __cdecl
     #define CV_STDCALL __stdcall
@@ -35,6 +45,8 @@ typedef uint64_t uint64;
     #define CV_CDECL
     #define CV_STDCALL
 #endif
+
+#define CV_IMPL CV_EXTERN_C
 
 #define CV_SWAP(a,b,t) ((t) = (a), (a) = (b), (b) = (t))
 
@@ -61,6 +73,8 @@ typedef uint64_t uint64;
 #define CV_CHOLESKY 3
 #define CV_QR  4
 #define CV_NORMAL 16
+
+#define CV_AUTOSTEP  0x7fffffff
 
 #define fixed_size  4096/sizeof(uchar)+8
 
@@ -396,3 +410,24 @@ typedef struct CvSeq
 CvSeq;
 
 /****************************************************************************************/
+
+#define CV_32FC1 CV_MAKETYPE(CV_32F,1)
+#define CV_64FC1 CV_MAKETYPE(CV_64F,1)
+
+CV_INLINE  void  cvmSet( CvMat* mat, int row, int col, double value )
+{
+    int type;
+    type = CV_MAT_TYPE(mat->type);
+    assert( (unsigned)row < (unsigned)mat->rows &&
+            (unsigned)col < (unsigned)mat->cols );
+
+    if( type == CV_32FC1 )
+	{
+		((float*)(mat->data.ptr + (size_t)mat->step*row))[col] = (float)value;
+	}
+    else
+    {
+        assert( type == CV_64FC1 );
+        ((double*)(mat->data.ptr + (size_t)mat->step*row))[col] = (double)value;
+    }
+}

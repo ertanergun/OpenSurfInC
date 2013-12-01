@@ -20,7 +20,7 @@
     #define CV_XADD(addr,delta) InterlockedExchangeAdd((LONG volatile*)(addr), (delta))
   #endif
 
-#define CV_AUTOSTEP  0x7fffffff
+
 
 typedef IplImage* (CV_STDCALL* Cv_iplCreateImageHeader)
                             (int,int,int,char*,char*,int,int,int,int,int,

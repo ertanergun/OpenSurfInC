@@ -54,5 +54,14 @@ typedef struct{
 	//! 3x3x3 Extrema test
     int isExtremum(int r, int c, ResponseLayer *t, ResponseLayer *m, ResponseLayer *b, FastHessian* fh); 
 
+	//! Interpolation functions - adapted from Lowe's SIFT implementation
+    void interpolateExtremum(int r, int c, ResponseLayer *t, ResponseLayer *m, ResponseLayer *b, FastHessian *fh);
+
+	void interpolateStep(int r, int c, ResponseLayer *t, ResponseLayer *m, ResponseLayer *b,
+                          double* xi, double* xr, double* xc );
+
+	CvMat* deriv3D(int r, int c, ResponseLayer *t, ResponseLayer *m, ResponseLayer *b);
+    CvMat* hessian3D(int r, int c, ResponseLayer *t, ResponseLayer *m, ResponseLayer *b);
+
 void interpolateStep();
 

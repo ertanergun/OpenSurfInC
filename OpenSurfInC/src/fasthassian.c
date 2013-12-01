@@ -56,7 +56,7 @@ int getIpoints(FastHessian *fh)
 				{
 					if (isExtremum(r, c, t, m, b,fh))
 					{
-						//interpolateExtremum(r, c, t, m, b,fh);
+						interpolateExtremum(r, c, t, m, b,fh);
 					}
 				}
 			}
@@ -200,26 +200,107 @@ int isExtremum(int r, int c, ResponseLayer *t, ResponseLayer *m, ResponseLayer *
 	return 1;
 }
 
+//! Interpolate scale-space extrema to subpixel accuracy to form an image feature. 
+void interpolateExtremum(int r, int c, ResponseLayer *t, ResponseLayer *m, ResponseLayer *b, FastHessian *fh)
+{
+	double xi = 0, xr = 0, xc = 0;
+
+	// get the step distance between filters
+	// check the middle filter is mid way between top and bottom
+	
+	int filterStep = (m->filter - b->filter);
+	assert(filterStep > 0 && t->filter - m->filter == m->filter - b->filter);
+
+	// Get the offsets to the actual location of the extremum
+	interpolateStep(r, c, t, m, b, &xi, &xr, &xc );
+
+	if( fabs( xi ) < 0.5f  &&  fabs( xr ) < 0.5f  &&  fabs( xc ) < 0.5f )
+	{
+		Ipoint ipt;
+		ipt.x = (float)((c + xc) * t->step);
+		ipt.y = (float)((r + xr) * t->step);
+		ipt.scale = (float)((0.1333f) * (m->filter + xi * filterStep));
+		ipt.laplacian = (int)(getLaplacian(r,c,t,m));
+		fh->ipts[count] = ipt;
+		count++;
+	}
+	
+}
+
 
 //! Performs one step of extremum interpolation. 
-//void interpolateStep(int r, int c, ResponseLayer *t, ResponseLayer *m, ResponseLayer *b, double* xi, double* xr, double* xc )
-void interpolateStep()
+void interpolateStep(int r, int c, ResponseLayer *t, ResponseLayer *m, ResponseLayer *b, double* xi, double* xr, double* xc )
+//void interpolateStep()
 {
 	CvMat* dD, * H, * H_inv, X;
 	double x[3] = { 0 };
 
-	/*dD = deriv3D( r, c, t, m, b );
-	H = hessian3D( r, c, t, m, b );*/
+	dD = deriv3D( r, c, t, m, b );
+	H = hessian3D( r, c, t, m, b );
 	H_inv = CreateMat( 3, 3, CV_64FC1 );
-	cvInvert( H, H_inv, CV_SVD );
-	/*cvInitMatHeader( &X, 3, 1, CV_64FC1, x, CV_AUTOSTEP );
-	cvGEMM( H_inv, dD, -1, NULL, 0, &X, 0 );
+	cvInvert( H, H_inv, CV_SVD ); // incomplete check after invert() => CreateSVD()
+	//cvInitMatHeader( &X, 3, 1, CV_64FC1, x, CV_AUTOSTEP );
+	InitMatHeader( &X, 3, 1, CV_64FC1, x, CV_AUTOSTEP );  //check
+	cvGEMM( H_inv, dD, -1, NULL, 0, &X, 0 );  //incomplete
 
-	cvReleaseMat( &dD );
-	cvReleaseMat( &H );
-	cvReleaseMat( &H_inv );
+	free(&dD);
+	free(&H);
+	free(&H_inv);
+
+	//cvReleaseMat( &dD );
+	//cvReleaseMat( &H );
+	//cvReleaseMat( &H_inv );
 
 	*xi = x[2];
 	*xr = x[1];
-	*xc = x[0];*/
+	*xc = x[0];
+}
+
+//! Computes the partial derivatives in x, y, and scale of a pixel.
+CvMat* deriv3D(int r, int c, ResponseLayer *t, ResponseLayer *m, ResponseLayer *b)
+{
+  CvMat* dI;
+  double dx, dy, ds;
+
+  dx = (getResponse(r, c + 1, t, m) - getResponse(r, c - 1, t, m)) / 2.0;
+  dy = (getResponse(r + 1, c, t, m) - getResponse(r - 1, c, t, m)) / 2.0;
+  ds = (get_Response(r, c, t) - getResponse(r, c, t, b)) / 2.0;
+  
+  dI = CreateMat( 3, 1, CV_64FC1 );
+  cvmSet( dI, 0, 0, dx );
+  cvmSet( dI, 1, 0, dy );
+  cvmSet( dI, 2, 0, ds );
+
+  return dI;
+}
+
+//! Computes the 3D Hessian matrix for a pixel.
+CvMat* hessian3D(int r, int c, ResponseLayer *t, ResponseLayer *m, ResponseLayer *b)
+{
+  CvMat* H;
+  double v, dxx, dyy, dss, dxy, dxs, dys;
+
+  v = getResponse(r, c, t, m);
+  dxx = getResponse(r, c + 1, t, m) + getResponse(r, c - 1, t, m) - 2 * v;
+  dyy = getResponse(r + 1, c, t, m) + getResponse(r - 1, c, t, m) - 2 * v;
+  dss = get_Response(r, c, t) + getResponse(r, c, t, b) - 2 * v;
+  dxy = ( getResponse(r + 1, c + 1, t, m) - getResponse(r + 1, c - 1, t, m) - 
+          getResponse(r - 1, c + 1, t, m) + getResponse(r - 1, c - 1, t, m) ) / 4.0;
+  dxs = ( get_Response(r, c + 1, t) - get_Response(r, c - 1, t) - 
+          getResponse(r, c + 1, t, b) + getResponse(r, c - 1, t, b) ) / 4.0;
+  dys = ( get_Response(r + 1, c, t) - get_Response(r - 1, c, t) - 
+          getResponse(r + 1, c, t, b) + getResponse(r - 1, c, t, b) ) / 4.0;
+
+  H = CreateMat( 3, 3, CV_64FC1 );
+  cvmSet( H, 0, 0, dxx );
+  cvmSet( H, 0, 1, dxy );
+  cvmSet( H, 0, 2, dxs );
+  cvmSet( H, 1, 0, dxy );
+  cvmSet( H, 1, 1, dyy );
+  cvmSet( H, 1, 2, dys );
+  cvmSet( H, 2, 0, dxs );
+  cvmSet( H, 2, 1, dys );
+  cvmSet( H, 2, 2, dss );
+
+  return H;
 }
